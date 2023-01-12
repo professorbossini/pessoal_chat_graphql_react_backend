@@ -1,0 +1,6 @@
+query{
+  ambientes{
+    nome
+    id
+  }
+}
