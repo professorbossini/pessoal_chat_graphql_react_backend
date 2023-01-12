@@ -1,5 +1,7 @@
-import { createSchema, createYoga } from "graphql-yoga"
+import { createSchema, createYoga, createPubSub } from "graphql-yoga"
 import { createServer } from "node:http"
+
+const pubSub = createPubSub()
 
 const usuarios = [
   {
@@ -27,13 +29,13 @@ const mensagens = [
 ]
 
 const participacoes = [
-  {
-    id: '101',
-    usuario: '1',
-    ambiente: '11',
-    entrada: '2022-12-18 00:00:00',
-    saida: null
-  }
+  // {
+  //   id: '101',
+  //   usuario: '1',
+  //   ambiente: '11',
+  //   entrada: '2022-12-18 00:00:00',
+  //   saida: null
+  // }
 ]
 
 
@@ -68,6 +70,7 @@ const schema = createSchema({
       usuario: Usuario!
       ambiente: Ambiente!
       entrada: String!
+      saida: String
     }
     
     type Query {
@@ -76,6 +79,16 @@ const schema = createSchema({
       existe(nome: String!, senha: String!): Usuario!
       usuariosOnline(ambiente: ID!): [Usuario!]!
       mensagensPorAmbiente(ambiente: ID!): [Mensagem!]!
+    }
+
+    type Mutation {
+      registrarEntrada(usuario: ID!, ambiente: ID!): Participacao!
+      registrarSaida(usuario: ID!, ambiente: ID!): Participacao!
+      registrarMensagem(texto: String!, usuario: ID!, ambiente: ID!): Mensagem!
+    }
+
+    type Subscription {
+      novaMensagem(ambiente: ID!): Mensagem!
     }
     
   `,
@@ -93,6 +106,54 @@ const schema = createSchema({
       mensagensPorAmbiente: (parent, args, context, info) => {
         return mensagens.filter(m => m.ambiente === args.ambiente)
       }      
+    },
+    Mutation: {
+      registrarEntrada: (parent, args, context, info) => {
+        const { usuario, ambiente} = args
+        const p = {
+          id: Math.random().toString(36).substring(2, 9),
+          usuario,
+          ambiente,
+          entrada: new Date().toISOString(),
+          saida: null
+        }
+        participacoes.push(p)
+        return p          
+      },
+      registrarSaida: (parent, args, context, info) => {
+        const { usuario, ambiente } = args
+        const p = participacoes.find(p => p.usuario === usuario && p.ambiente === ambiente && p.saida === null)
+        p.saida = new Date().toISOString()
+        return p
+      },
+      registrarMensagem: (parent, args, context, info) => {
+        const { texto, usuario, ambiente } = args
+        const m = {
+          id: Math.random().toString(36).substring(2, 9),
+          texto,
+          usuario,
+          ambiente,
+          data: new Date().toISOString()
+        }
+        mensagens.push(m)
+        //estamos enviando uma notificação
+        //ao canal chamado A11: Nova Mensagem
+        //se o id do canal for 11
+        //é só uma convenção
+        context.pubSub.publish( `A${ambiente}: Nova Mensagem`, { novaMensagem: m })
+        return m
+      }
+    },
+    Subscription: {
+      novaMensagem: {
+        subscribe: (parent, args, context, info) => {
+          //o usuário fica vinculado
+          //ao canal chamado A11: Nova Mensagem
+          //se o id do canal for 11
+          //é só uma convenção
+          return pubSub.subscribe(`A${args.ambiente}: Nova Mensagem`)
+        }
+      }
     },
     Ambiente: {
       usuarios: (parent, args, context, info) => {
@@ -116,7 +177,8 @@ const schema = createSchema({
 })
 
 const yoga = createYoga ({
-  schema
+  schema,
+  context: {pubSub},
 })
 
 const server = createServer(yoga)
