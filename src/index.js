@@ -29,13 +29,13 @@ const mensagens = [
 ]
 
 const participacoes = [
-  // {
-  //   id: '101',
-  //   usuario: '1',
-  //   ambiente: '11',
-  //   entrada: '2022-12-18 00:00:00',
-  //   saida: null
-  // }
+  {
+    id: '101',
+    usuario: '1',
+    ambiente: '11',
+    entrada: '2022-12-18 00:00:00',
+    saida: null
+  }
 ]
 
 
@@ -89,6 +89,8 @@ const schema = createSchema({
 
     type Subscription {
       novaMensagem(ambiente: ID!): Mensagem!
+      usuarioEntrou(ambiente: ID!): Usuario!
+      usuarioSaiu(ambiente: ID!): Usuario!
     }
     
   `,
@@ -118,12 +120,28 @@ const schema = createSchema({
           saida: null
         }
         participacoes.push(p)
+        //estamos enviando uma notificação
+        //ao canal chamado A11: Usuario Entrou
+        //se o id do canal for 11
+        //é só uma convenção
+        context.pubSub.publish( 
+          `A${ambiente}: Usuario Entrou`, 
+          {usuarioEntrou: usuarios.find(u => u.id === usuario)}
+        )
         return p          
       },
       registrarSaida: (parent, args, context, info) => {
         const { usuario, ambiente } = args
         const p = participacoes.find(p => p.usuario === usuario && p.ambiente === ambiente && p.saida === null)
         p.saida = new Date().toISOString()
+        //estamos enviando uma notificação
+        //ao canal chamado A11: Usuario Saiu
+        //se o id do canal for 11
+        //é só uma convenção
+        context.pubSub.publish(
+          `A${ambiente}: Usuario Saiu`, 
+          {usuarioSaiu: usuarios.find(u => u.id === usuario)}
+        )
         return p
       },
       registrarMensagem: (parent, args, context, info) => {
@@ -152,6 +170,24 @@ const schema = createSchema({
           //se o id do canal for 11
           //é só uma convenção
           return pubSub.subscribe(`A${args.ambiente}: Nova Mensagem`)
+        }
+      },
+      usuarioEntrou: {
+        subscribe: (parent, args, context, info) => {
+          //o usuário fica vinculado
+          //ao canal chamado A11: Usuario Entrou
+          //se o id do canal for 11
+          //é só uma convenção
+          return context.pubSub.subscribe(`A${args.ambiente}: Usuario Entrou`)
+        }
+      },
+      usuarioSaiu: {
+        subscribe: (parent, args, context, info) => {
+          //o usuário fica vinculado
+          //ao canal chamado A11: Usuario Saiu
+          //se o id do canal for 11
+          //é só uma convenção
+          return context.pubSub.subscribe(`A${args.ambiente}: Usuario Saiu`)
         }
       }
     },
