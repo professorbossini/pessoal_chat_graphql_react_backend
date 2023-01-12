@@ -40,16 +40,30 @@ const participacoes = [
 const schema = createSchema({
   typeDefs: `
    
-    type Ambiente{
-      id: ID!
-      nome: String!
-    }
-
     type Usuario{
       id: ID!
       nome: String!
       senha: String!
+      mensagens: [Mensagem!]!
+      ambientes: [Ambiente!]!
     }
+
+    type Mensagem{
+      id: ID!
+      texto: String!
+      usuario: Usuario!
+      ambiente: Ambiente!
+      data: String!
+    }
+
+    type Ambiente{
+      id: ID!
+      nome: String!
+      usuarios: [Usuario!]!
+      mensagens: [Mensagem!]!
+    }
+
+
 
     type Participacao{
       id: ID!
@@ -60,47 +74,13 @@ const schema = createSchema({
     
     type Query {
       hello: String!
-      ambientes: [Ambiente!]!
-      existe(nome: String!, senha: String!): Usuario
-      usuariosNoAmbiente(ambiente: ID!): [Usuario!]!
     }
-
-    type Mutation{
-      registrarParticipacao(participacao: ParticipacaoInput!): Participacao!
-    }
-
-    input ParticipacaoInput{
-      usuario: ID!
-      ambiente: ID!
-    }
+    
   `,
   resolvers: {
     Query: {
-      hello: () => 'Hello, GraphQL',
-      ambientes: () => ambientes,
-      existe: (parent, args, context, info) => {
-        const { nome, senha } = args
-        return usuarios.find(usuario => usuario.nome === nome && usuario.senha === senha)
-      },
-      usuariosNoAmbiente: (parent, args, context, info) => {
-        const { ambiente } = args
-        const idsUsuarios = participacoes.filter(p => p.ambiente === ambiente).map(p => p.usuario)
-        return usuarios.filter(u => idsUsuarios.includes(u.id))
-      }
-    },
-    Mutation: {
-      registrarParticipacao: (parent, args, context, info) => {
-        const { participacao } = args
-        const { usuario, ambiente } = participacao
-        const p = {
-          id: Math.random().toString(36).substring(2, 9),
-          usuario,
-          ambiente,
-          entrada: new Date().toISOString()
-        }
-        participacoes.push(p)
-        return p
-      }
+      hello: () => 'Hello, GraphQL'
+      
     }
   }
 })
