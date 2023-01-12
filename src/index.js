@@ -63,8 +63,6 @@ const schema = createSchema({
       mensagens: [Mensagem!]!
     }
 
-
-
     type Participacao{
       id: ID!
       usuario: Usuario!
@@ -74,13 +72,45 @@ const schema = createSchema({
     
     type Query {
       hello: String!
+      ambientes: [Ambiente!]!
+      existe(nome: String!, senha: String!): Usuario!
+      usuariosOnline(ambiente: ID!): [Usuario!]!
+      mensagensPorAmbiente(ambiente: ID!): [Mensagem!]!
     }
     
   `,
   resolvers: {
     Query: {
-      hello: () => 'Hello, GraphQL'
-      
+      hello: () => 'Hello, GraphQL',
+      ambientes: () => ambientes,
+      existe: (parent, args, context, info) => {
+        return usuarios.find(u => u.nome === args.nome && u.senha === args.senha)
+      },
+      usuariosOnline: (parent, args, context, info) => {
+        const idUsuarios = participacoes.filter(p => p.ambiente === args.ambiente && p.saida === null).map(p => p.usuario)
+        return usuarios.filter(u => idUsuarios.includes(u.id))
+      },
+      mensagensPorAmbiente: (parent, args, context, info) => {
+        return mensagens.filter(m => m.ambiente === args.ambiente)
+      }      
+    },
+    Ambiente: {
+      usuarios: (parent, args, context, info) => {
+        const idUsuarios = participacoes.filter(p => p.ambiente === parent.id).map(p => p.usuario)
+        return usuarios.filter(u => idUsuarios.includes(u.id))
+      },
+      mensagens: (parent, args, context, info) => {
+        return mensagens.filter(m => m.ambiente === parent.id)
+      }
+    },
+    Usuario: {
+      mensagens: (parent, args, context, info) => {
+        return mensagens.filter(m => m.usuario === parent.id)
+      },   
+      ambientes: (parent, args, context, info) => {
+        const idAmbientes = participacoes.filter(p => p.usuario === parent.id).map(p => p.ambiente)
+        return ambientes.filter(a => idAmbientes.includes(a.id))
+      }
     }
   }
 })
